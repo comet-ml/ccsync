@@ -41,8 +41,10 @@ export interface OpikTrace {
 
 export interface OpikConfig {
   base_url: string;
-  api_key: string;
+  api_key?: string;
   project_name?: string;
+  workspace?: string;
+  is_local?: boolean;
 }
 
 export interface SyncOptions {

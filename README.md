@@ -1,12 +1,72 @@
-# opik-chat-sync
+# @opik/ccsync
 
 A command-line tool to export Claude Code conversations to Opik for observability and analytics.
 
 ## Installation
 
 ```bash
-npm install
-npm run build
+npm install -g @opik/ccsync
+```
+
+Or run directly without installing:
+
+```bash
+npx @opik/ccsync --help
+```
+
+## Quick Start
+
+The best way to use @opik/ccsync is with **Claude Code hooks** for automatic syncing:
+
+1. **Set up Opik connection**:
+   ```bash
+   npx @opik/ccsync config
+   ```
+   
+   This will guide you through an interactive setup process. Alternatively, you can set environment variables:
+   ```bash
+   export OPIK_API_KEY="your-api-key"
+   export OPIK_BASE_URL="http://localhost:5173"  # Optional, defaults to Opik cloud
+   ```
+
+2. **Add automatic syncing hooks** to your Claude Code settings (`~/.claude/settings.json`):
+   ```json
+   {
+     "hooks": {
+       "PostToolUse": [
+         {
+           "matcher": "*",
+           "hooks": [
+             {
+               "type": "command",
+               "command": "jq -r '.session_id' | xargs -I {} npx @opik/ccsync sync --session {}"
+             }
+           ]
+         }
+       ],
+       "Stop": [
+         {
+           "matcher": "*",
+           "hooks": [
+             {
+               "type": "command",
+               "command": "jq -r '.session_id' | xargs -I {} npx @opik/ccsync sync --session {}"
+             }
+           ]
+         }
+       ]
+     }
+   }
+   ```
+
+That's it! Now every time you finish a Claude Code conversation, it will automatically sync to Opik.
+
+### Alternative: Manual Sync
+
+You can also run syncing manually:
+```bash
+# Sync all conversations at once
+npx @opik/ccsync sync --all
 ```
 
 ## Configuration
@@ -25,151 +85,72 @@ Create `~/.opik.config`:
 ```ini
 api_key = your-api-key
 url_override = http://localhost:5173
-workspace = your-project
+workspace = your-workspace
 ```
 
 ## Commands
 
-### `opik-chat-sync config`
-*Check configuration and connectivity*
-
-Show current Opik configuration and verify connection.
-
-```bash
-opik-chat-sync config
-```
-
-**Output:**
-```
-✅ Connected to Opik at http://localhost:5173
-Current Configuration:
-  Opik URL: http://localhost:5173
-  API Key: ***configured***
-  Project: default
-  Claude Data Dir: /Users/username/.claude
-```
-
-### `opik-chat-sync list-sessions`
-*Discover available Claude conversations*
-
-List all Claude Code sessions available for export.
-
-```bash
-opik-chat-sync list-sessions [--project <path>]
-```
-
-**Options:**
-- `--project <path>` - Filter sessions by project path
-
-**Examples:**
-```bash
-# List all sessions
-opik-chat-sync list-sessions
-
-# List sessions for specific project
-opik-chat-sync list-sessions --project /path/to/project
-```
-
-**Sample Output:**
-```
-Listing Claude Code sessions...
-Session ID                           Last Updated # Messages Summary
-❯ 1.  ce61eece-2274-40ec-8b15-3a1189c04c4a 2h ago       15         Implementing user authentication...
-❯ 2.  b7f3d9e1-8a2c-4f5e-9b1d-3c7e6a4f8b2e 1d ago       8          Bug fix for login validation...
-```
-
-### `opik-chat-sync sync`
-*Export conversations to Opik*
+### `ccsync sync` - Export conversations to Opik
 
 Export Claude Code data to Opik for analysis and observability.
 
 ```bash
-opik-chat-sync sync [options]
-```
+# Export all sessions across all projects (recommended)
+npx @opik/ccsync sync --all
 
-**Required Options (choose one):**
-- `--session <id>` - Export specific session by ID
-- `--project <path>` - Export all sessions in project path
-- `--all` - Export all sessions across all projects
-- `--watch` - Watch for new conversations and sync automatically
-
-**Modifier Options:**
-- `--force` - Force export even if already exported
-- `--dry-run` - Preview what would be exported without actually exporting
-- `--verbose` - Enable verbose logging for debugging
-
-**Examples:**
-```bash
-# Export a specific session
-opik-chat-sync sync --session ce61eece-2274-40ec-8b15-3a1189c04c4a
-
-# Preview what would be exported
-opik-chat-sync sync --session ce61eece-2274-40ec-8b15-3a1189c04c4a --dry-run
-
-# Force export (bypass duplicate detection)
-opik-chat-sync sync --session ce61eece-2274-40ec-8b15-3a1189c04c4a --force
+# Export specific session
+npx @opik/ccsync sync --session ce61eece-2274-40ec-8b15-3a1189c04c4a
 
 # Export all sessions in a project
-opik-chat-sync sync --project /path/to/project
-
-# Export all sessions across all projects
-opik-chat-sync sync --all
+npx @opik/ccsync sync --project /path/to/project
 
 # Watch for new conversations and sync automatically
-opik-chat-sync sync --watch
+npx @opik/ccsync sync --watch
 
-# Dry run with watch mode
-opik-chat-sync sync --watch --dry-run
+# Preview what would be exported (dry run)
+npx @opik/ccsync sync --all --dry-run
+
+# Force export (bypass duplicate detection)
+npx @opik/ccsync sync --all --force
 ```
 
-**Sample Sync Output:**
-```
-✅ Connected to Opik at https://www.comet.com/opik/api/
-Syncing session: ce61eece-2274-40ec-8b15-3a1189c04c4a
-✅ Synced 3 conversations to Opik (2 new, 1 updated)
-```
+### `ccsync ls` - List available conversations
 
-**Sample Watch Mode Output:**
-```
-✅ Connected to Opik at https://www.comet.com/opik/api/
-Starting watch mode...
-Monitoring: /Users/username/.claude/projects
+List all Claude Code sessions available for export.
 
-Press Ctrl+C to stop watching...
+```bash
+# List all sessions
+npx @opik/ccsync ls
 
-✅ Watcher is ready and monitoring files
-
-Monitoring 5 Claude projects
-Watching for new messages...
-
-Syncing session: 9827a1f6-5ddc-4d1a-be3c-41056311853
-✅ Synced 1 conversation to Opik (0 new, 1 updated)
+# List sessions for specific project
+npx @opik/ccsync ls --project /path/to/project
 ```
 
-### `opik-chat-sync state`
-*Manage export tracking*
+### `ccsync config` - Configure Opik connection
+
+Interactive setup for Opik connection. Guides you through configuration and validates the connection.
+
+```bash
+# Interactive configuration setup
+npx @opik/ccsync config
+
+# Just show current configuration
+npx @opik/ccsync config --show
+```
+
+### `ccsync state` - Manage export tracking
 
 Manage the state system that tracks which sessions have been exported.
 
 ```bash
-opik-chat-sync state [options]
-```
-
-**Options:**
-- `--show` - Display current export history
-- `--reset` - Clear all export history (forces re-export)
-- `--clean` - Remove stale lock files
-
-**Examples:**
-```bash
 # Show export history
-opik-chat-sync state --show
+npx @opik/ccsync state --show
 
-# Clear export history
-opik-chat-sync state --reset
+# Clear export history (forces re-export)
+npx @opik/ccsync state --reset
 
 # Clean up lock files
-opik-chat-sync state --clean
+npx @opik/ccsync state --clean
 ```
 
 ## Watch Mode
@@ -178,7 +159,7 @@ opik-chat-sync state --clean
 
 ```bash
 # Start watching for new conversations
-opik-chat-sync sync --watch
+npx @opik/ccsync sync --watch
 ```
 
 **Watch Mode Features:**
@@ -197,22 +178,22 @@ opik-chat-sync sync --watch
 
 1. **Configure connection**:
    ```bash
-   opik-chat-sync config
+   npx @opik/ccsync config
    ```
 
 2. **List available sessions**:
    ```bash
-   opik-chat-sync list-sessions
+   npx @opik/ccsync ls
    ```
 
 3. **Export a session**:
    ```bash
-   opik-chat-sync sync --session <session-id>
+   npx @opik/ccsync sync --session <session-id>
    ```
 
 4. **Start automatic syncing**:
    ```bash
-   opik-chat-sync sync --watch
+   npx @opik/ccsync sync --watch
    ```
 
 ## Advanced Features
@@ -244,7 +225,8 @@ opik-chat-sync sync --watch
 
 **Configuration Issues:**
 ```bash
-opik-chat-sync config  # Check current settings
+npx @opik/ccsync config  # Interactive setup
+npx @opik/ccsync config --show  # Check current settings
 ```
 
 **No sessions found:**
@@ -253,21 +235,21 @@ opik-chat-sync config  # Check current settings
 
 **Lock file errors:**
 ```bash
-opik-chat-sync state --clean  # Remove stale locks
+npx @opik/ccsync state --clean  # Remove stale locks
 ```
 
 **Force re-export:**
 ```bash
-opik-chat-sync sync --session <id> --force
+npx @opik/ccsync sync --session <id> --force
 ```
 
 **Watch mode issues:**
 ```bash
 # Test with dry-run first
-opik-chat-sync sync --watch --dry-run
+npx @opik/ccsync sync --watch --dry-run
 
 # Enable verbose logging for debugging
-opik-chat-sync sync --watch --verbose
+npx @opik/ccsync sync --watch --verbose
 ```
 
 **Performance tuning:**
@@ -277,7 +259,7 @@ opik-chat-sync sync --watch --verbose
 
 ## Claude Code Hooks Integration
 
-**Claude Code hooks** provide automatic syncing by executing `opik-chat-sync` commands in response to Claude Code events. This eliminates the need to manually run sync commands or use watch mode.
+**Claude Code hooks** provide automatic syncing by executing `@opik/ccsync` commands in response to Claude Code events. This eliminates the need to manually run sync commands or use watch mode.
 
 ### Available Hook Events
 
@@ -297,7 +279,7 @@ Add hooks to your Claude Code settings file (`~/.claude/settings.json` or `.clau
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '.session_id' | xargs -I {} npx opik-chat-sync sync --session {} --force"
+            "command": "jq -r '.session_id' | xargs -I {} npx @opik/ccsync sync --session {} --force"
           }
         ]
       }
@@ -308,7 +290,7 @@ Add hooks to your Claude Code settings file (`~/.claude/settings.json` or `.clau
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '.session_id' | xargs -I {} npx opik-chat-sync sync --session {}"
+            "command": "jq -r '.session_id' | xargs -I {} npx @opik/ccsync sync --session {}"
           }
         ]
       }
@@ -329,7 +311,7 @@ Add hooks to your Claude Code settings file (`~/.claude/settings.json` or `.clau
         "hooks": [
           {
             "type": "command", 
-            "command": "jq -r '.session_id' | xargs -I {} npx opik-chat-sync sync --session {} --force"
+            "command": "jq -r '.session_id' | xargs -I {} npx @opik/ccsync sync --session {} --force"
           }
         ]
       }
@@ -348,7 +330,7 @@ Add hooks to your Claude Code settings file (`~/.claude/settings.json` or `.clau
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '.session_id' | xargs -I {} npx opik-chat-sync sync --session {}"
+            "command": "jq -r '.session_id' | xargs -I {} npx @opik/ccsync sync --session {}"
           }
         ]
       }
@@ -367,7 +349,7 @@ Add hooks to your Claude Code settings file (`~/.claude/settings.json` or `.clau
         "hooks": [
           {
             "type": "command",
-            "command": "jq -r '.session_id' | xargs -I {} npx opik-chat-sync sync --session {} 2>/dev/null || echo 'Sync failed'"
+            "command": "jq -r '.session_id' | xargs -I {} npx @opik/ccsync sync --session {} 2>/dev/null || echo 'Sync failed'"
           }
         ]
       }

@@ -37,7 +37,7 @@ export class OpikApiClient {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
         ...(config.api_key && { 'authorization': config.api_key }),
-        ...(config.project_name && { 'Comet-Workspace': config.project_name })
+        ...(config.workspace && { 'Comet-Workspace': config.workspace })
       },
       timeout: 30000 // 30 second timeout
     });
@@ -70,9 +70,9 @@ export class OpikApiClient {
         // If workspace doesn't exist, try with "default"
         if (error.response?.status === 403 && 
             error.response?.data?.message?.includes('Workspace') &&
-            this.config.project_name !== 'default') {
+            this.config.workspace !== 'default') {
           
-          this.logger.warning(`Workspace '${this.config.project_name}' not found, trying 'default'`);
+          this.logger.warning(`Workspace '${this.config.workspace}' not found, trying 'default'`);
           
           // Create a new client with default workspace
           const defaultClient = axios.create({

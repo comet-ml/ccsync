@@ -32,12 +32,12 @@ function formatTimeAgo(milliseconds: number): string {
 const program = new Command();
 
 program
-  .name('opik-chat-sync')
+  .name('@opik/ccsync')
   .description('Sync Claude Code conversations to Opik for observability and analytics')
   .version('0.1.0');
 
 program
-  .command('list-sessions')
+  .command('ls')
   .description('List all available Claude Code sessions')
   .option('--project <path>', 'Filter sessions by project path')
   .action(async (options) => {
@@ -102,10 +102,11 @@ program
   .option('--verbose', 'Enable verbose logging')
   .option('--all', 'Sync all sessions across all projects')
   .action(async (options) => {
+    const logger = createLogger({ verbose: options.verbose, dryRun: options.dryRun });
+    
     try {
       // Validate Opik configuration at startup
       const opikConfig = getOpikConfig();
-      const logger = createLogger({ verbose: options.verbose, dryRun: options.dryRun });
       logger.success(`Connected to Opik at ${opikConfig.base_url}`);
 
       const syncOptions = {
@@ -147,26 +148,39 @@ program
         process.exit(1);
       }
     } catch (error) {
-      const logger = createLogger();
-      logger.error(`Error during sync: ${error instanceof Error ? error.message : error}`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      
+      // Check if it's a configuration error
+      if (errorMessage.includes('No Opik configuration found')) {
+        logger.error('❌ No Opik configuration found!');
+        logger.info('');
+        logger.info('💡 To set up configuration, run:');
+        logger.info('   ccsync config');
+        logger.info('');
+        logger.info('🔧 Or set environment variables:');
+        logger.info('   export OPIK_API_KEY="your-api-key"');
+        logger.info('   export OPIK_BASE_URL="http://localhost:5173"');
+      } else {
+        logger.error(`Error during sync: ${errorMessage}`);
+      }
+      
       process.exit(1);
     }
   });
 
 program
   .command('config')
-  .description('Show current configuration')
-  .action(async () => {
+  .description('Configure Opik connection (interactive setup)')
+  .option('--show', 'Show current configuration without interactive setup')
+  .action(async (options) => {
     try {
-      const opikConfig = getOpikConfig();
-      const claudeDataDir = getClaudeDataDir();
-      
-      const logger = createLogger();
-      logger.info('Current Configuration:');
-      logger.info(`  Opik URL: ${opikConfig.base_url}`);
-      logger.info(`  API Key: ${opikConfig.api_key ? '***configured***' : 'not set'}`);
-      logger.info(`  Project: ${opikConfig.project_name || 'default'}`);
-      logger.info(`  Claude Data Dir: ${claudeDataDir}`);
+      if (options.show) {
+        const { showConfigStatus } = await import('./config/interactive');
+        await showConfigStatus();
+      } else {
+        const { runInteractiveConfig } = await import('./config/interactive');
+        await runInteractiveConfig();
+      }
     } catch (error) {
       const logger = createLogger();
       logger.error(`Configuration error: ${error instanceof Error ? error.message : error}`);
