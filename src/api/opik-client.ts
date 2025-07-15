@@ -171,6 +171,62 @@ export class OpikApiClient {
     }
   }
 
+  async updateThreadTags(threadId: string, tags: string[]): Promise<void> {
+    try {
+      // First, get the thread_model_id by searching for the thread
+      const searchEndpoint = `/api/v1/private/traces/threads`;
+      const searchParams = new URLSearchParams({
+        project_name: 'Claude Code',
+        filters: JSON.stringify([{
+          id: 'thread_id_filter',
+          field: 'id',
+          type: 'string',
+          operator: 'contains',
+          key: '',
+          value: threadId
+        }]),
+        sorting: JSON.stringify([{
+          field: 'last_updated_at',
+          direction: 'DESC'
+        }]),
+        size: '1',
+        page: '1',
+        truncate: 'true'
+      });
+
+      const searchResponse = await this.client.get(`${searchEndpoint}?${searchParams}`);
+      
+      if (!searchResponse.data?.content?.[0]?.thread_model_id) {
+        throw new Error(`Thread ${threadId} not found or no thread_model_id available`);
+      }
+
+      const threadModelId = searchResponse.data.content[0].thread_model_id;
+
+      // Now update the thread tags using the thread_model_id
+      const updateEndpoint = `/api/v1/private/traces/threads/${threadModelId}`;
+      const payload = { tags };
+      
+      await this.client.patch<void>(updateEndpoint, payload);
+    } catch (error) {
+      if (error instanceof AxiosError) {
+        this.logger.error(`Thread tags update request details: ${JSON.stringify({
+          url: error.config?.url,
+          method: error.config?.method,
+          baseURL: error.config?.baseURL,
+          headers: error.config?.headers,
+          data: error.config?.data
+        })}`);
+        
+        const status = error.response?.status || 'no response';
+        const statusText = error.response?.statusText || 'unknown error';
+        const errorMsg = `Failed to update thread ${threadId} tags: ${status} ${statusText}`;
+        const errorDetails = error.response?.data ? JSON.stringify(error.response.data, null, 2) : error.message;
+        throw new Error(`${errorMsg}\nDetails: ${errorDetails}`);
+      }
+      throw new Error(`Unexpected error updating thread ${threadId} tags: ${error instanceof Error ? error.message : error}`);
+    }
+  }
+
   getConfig(): OpikConfig {
     return { ...this.config };
   }

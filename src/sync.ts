@@ -21,6 +21,10 @@ export class OpikClient {
   async updateTrace(traceId: string, trace: Partial<OpikTrace>): Promise<void> {
     return await this.apiClient.updateTrace(traceId, trace);
   }
+
+  async updateThreadTags(threadId: string, tags: string[]): Promise<void> {
+    return await this.apiClient.updateThreadTags(threadId, tags);
+  }
 }
 
 interface GroupAction {
@@ -199,6 +203,16 @@ export async function syncSession(sessionId: string, options: SyncOptions = {}):
           
           logger.debug(`Created trace ${traceId} for conversation ${userMessage.uuid}`);
           
+          // Update thread tags if we have thread_id and tags
+          if (trace.thread_id && trace.tags) {
+            try {
+              await opikClient.updateThreadTags(trace.thread_id, trace.tags);
+              logger.debug(`Updated thread tags for ${trace.thread_id}`);
+            } catch (error) {
+              logger.warning(`Failed to update thread tags for ${trace.thread_id}: ${error instanceof Error ? error.message : error}`);
+            }
+          }
+          
           // Add to synced groups
           updatedSyncedGroups.push({
             traceId,
@@ -227,6 +241,16 @@ export async function syncSession(sessionId: string, options: SyncOptions = {}):
       // Update existing trace
       await opikClient.updateTrace(action.traceId, trace);
       logger.debug(`Updated trace ${action.traceId} for conversation ${userMessage.uuid}`);
+      
+      // Update thread tags if we have thread_id and tags
+      if (trace.thread_id && trace.tags) {
+        try {
+          await opikClient.updateThreadTags(trace.thread_id, trace.tags);
+          logger.debug(`Updated thread tags for ${trace.thread_id}`);
+        } catch (error) {
+          logger.warning(`Failed to update thread tags for ${trace.thread_id}: ${error instanceof Error ? error.message : error}`);
+        }
+      }
       
       // Update synced groups
       const existingIndex = updatedSyncedGroups.findIndex(sg => sg.traceId === action.traceId);
@@ -259,6 +283,7 @@ export async function syncSession(sessionId: string, options: SyncOptions = {}):
       logger.warning(`Failed to update sync state: ${stateError instanceof Error ? stateError.message : stateError}`);
       logger.warning(`Sync completed successfully but state update failed`);
     }
+    
   } catch (error) {
     logger.error(`Failed to sync to Opik: ${error instanceof Error ? error.message : error}`);
     logger.info(`Traces are still available in: ${tmpFile}`);

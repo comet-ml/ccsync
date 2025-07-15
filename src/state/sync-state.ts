@@ -37,7 +37,7 @@ export class SyncStateManager {
   private readonly stateFile: string;
   private readonly lockFile: string;
   private readonly lockTimeout: number = 30000; // 30 seconds
-  private readonly maxRetries: number = 10;
+  private readonly maxRetries: number = 2;
 
   constructor() {
     this.stateDir = join(homedir(), '.opik', 'sync-state');

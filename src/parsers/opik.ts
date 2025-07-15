@@ -46,11 +46,17 @@ export function claudeToOpikTraces(messages: ClaudeMessage[], startFromIndex: nu
     // Use "Claude Code" as the project name
     const projectName = "Claude Code";
     
+    // Extract project name from working directory
+    const workingProjectName = extractProjectName(userMessage.cwd);
+    
     // Build timeline-style output from assistant responses
     const output = buildTimelineOutput(assistantMessages);
     
     // Calculate total tokens
     const totalTokens = calculateTotalTokens(group);
+    
+    // Create project-specific tags
+    const projectTags = ['claude-code', `project:${workingProjectName}`];
     
     // Create trace
     const trace: OpikTrace = {
@@ -68,10 +74,11 @@ export function claudeToOpikTraces(messages: ClaudeMessage[], startFromIndex: nu
         total_tokens: totalTokens,
         message_count: group.length,
         raw_messages: group,
-        original_message_id: userMessage.uuid
+        original_message_id: userMessage.uuid,
+        project_name: workingProjectName
       },
       thread_id: userMessage.sessionId,
-      tags: ['claude-code', 'conversation']
+      tags: projectTags
     };
     
     traces.push(trace);
@@ -84,7 +91,7 @@ function extractProjectName(cwd: string): string {
   if (!cwd || typeof cwd !== 'string') {
     return 'unknown-project';
   }
-  const pathParts = cwd.split('/');
+  const pathParts = cwd.split('/').filter(part => part.length > 0);
   return pathParts[pathParts.length - 1] || 'unknown-project';
 }
 
