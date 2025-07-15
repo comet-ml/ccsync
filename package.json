@@ -1,6 +1,6 @@
 {
   "name": "@opik/ccsync",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "description": "Sync Claude Code conversations to Opik for observability and analytics",
   "main": "dist/index.js",
   "bin": {
