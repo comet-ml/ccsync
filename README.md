@@ -2,6 +2,8 @@
 
 A command-line tool to export Claude Code conversations to Opik for observability and analytics.
 
+[Opik](https://github.com/comet-ml/opik) is the open-source LLM observability and evaluation platform, built by [Comet](https://www.comet.com). ccsync ships your Claude Code conversation history into it, so you can search, analyze, and evaluate your agent sessions.
+
 ## Installation
 
 ```bash
@@ -389,3 +391,12 @@ The command examples above use `jq` to extract the `session_id` from the JSON in
 | **Control** | Integrated with Claude Code | Independent process |
 
 **Recommendation**: Use hooks for automatic per-session syncing, watch mode for continuous monitoring of all projects.
+
+## Opik for Claude Code
+
+This repo is part of a set of tools for observing Claude Code and other coding agents with [Opik](https://github.com/comet-ml/opik):
+
+- [opik-claude-code-plugin](https://github.com/comet-ml/opik-claude-code-plugin): log Claude Code sessions as Opik traces, with skills and agents included
+- [ccsync](https://github.com/comet-ml/ccsync): export Claude Code conversation history to Opik **(this repo)**
+- [cost-intelligence-proxy](https://github.com/comet-ml/cost-intelligence-proxy): meter Claude Code token spend and cost per call
+- [opik-skills](https://github.com/comet-ml/opik-skills): agent skills for instrumenting your code with Opik
