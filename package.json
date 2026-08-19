@@ -25,6 +25,10 @@
   ],
   "author": "",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/comet-ml/ccsync.git"
+  },
   "dependencies": {
     "axios": "^1.6.0",
     "chokidar": "^4.0.3",
