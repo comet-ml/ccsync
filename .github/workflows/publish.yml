@@ -12,16 +12,29 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    
+
+    permissions:
+      # `contents: write` — the tag step below commits and pushes.
+      # `id-token: write` — mints the OIDC token npm trusted publishing exchanges
+      # for a short-lived publish credential. npm matches this workflow's filename
+      # (publish.yml) against the trusted publisher configured on npmjs.com.
+      contents: write
+      id-token: write
+
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
-      
+      uses: actions/checkout@v4
+
     - name: Setup Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        # npm trusted publishing (OIDC) requires Node >= 22.14.0 and npm >= 11.5.1;
+        # Node 22.14.0 ships npm 10.x, so the npm CLI is bumped explicitly below.
+        node-version: '22.14.0'
         registry-url: 'https://registry.npmjs.org'
+
+    - name: Setup npm
+      run: npm install -g npm@11.6.2
         
     - name: Install dependencies
       run: npm ci
@@ -43,9 +56,16 @@ jobs:
         fi
         
     - name: Publish to NPM
-      run: npm publish --access public
-      env:
-        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      # Authenticated with npm trusted publishing (OIDC), not a token: npm revoked
+      # all classic tokens on 2025-12-09 and caps granular write tokens at 90 days.
+      # `npm config delete` removes the `_authToken=${NODE_AUTH_TOKEN}` stub that
+      # setup-node writes into ~/.npmrc — with no token set, npm would try that
+      # empty credential instead of falling back to the OIDC exchange.
+      # Provenance is generated automatically for trusted publishes from GitHub
+      # Actions on public repos, which is why package.json now has `repository`.
+      run: |
+        npm config delete //registry.npmjs.org/:_authToken || true
+        npm publish --access public
         
     - name: Create Git tag
       run: |
