@@ -24,7 +24,7 @@ The best way to use @opik/ccsync is with **Claude Code hooks** for automatic syn
    ```bash
    npx @opik/ccsync config
    ```
-   
+
    This will guide you through an interactive setup process. Alternatively, you can set environment variables:
    ```bash
    export OPIK_API_KEY="your-api-key"
@@ -80,6 +80,7 @@ Configure Opik connection using environment variables or a config file:
 export OPIK_API_KEY="your-api-key"
 export OPIK_BASE_URL="http://localhost:5173"  # Optional
 export OPIK_PROJECT_NAME="your-project"       # Optional
+export OPIK_PROVIDER="anthropic"              # Optional
 ```
 
 ### Configuration File
@@ -88,6 +89,7 @@ Create `~/.opik.config`:
 api_key = your-api-key
 url_override = http://localhost:5173
 workspace = your-workspace
+provider = anthropic
 ```
 
 ## Commands
@@ -288,7 +290,7 @@ Add hooks to your Claude Code settings file (`~/.claude/settings.json` or `.clau
     ],
     "Stop": [
       {
-        "matcher": "*", 
+        "matcher": "*",
         "hooks": [
           {
             "type": "command",
@@ -312,7 +314,7 @@ Add hooks to your Claude Code settings file (`~/.claude/settings.json` or `.clau
         "matcher": "*",
         "hooks": [
           {
-            "type": "command", 
+            "type": "command",
             "command": "jq -r '.session_id' | xargs -I {} npx @opik/ccsync sync --session {} --force"
           }
         ]
