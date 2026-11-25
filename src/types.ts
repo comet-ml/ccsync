@@ -3,6 +3,7 @@ export interface ClaudeMessage {
   isSidechain: boolean;
   userType: string;
   cwd: string;
+  slug: string;
   sessionId: string;
   version: string;
   type: 'user' | 'assistant';
@@ -39,12 +40,31 @@ export interface OpikTrace {
   thread_id?: string;
 }
 
+export interface OpikSpan {
+  id?: string;
+  project_name?: string;
+  name?: string;
+  type?: 'general' | 'tool' | 'llm' | 'guardrail';
+  start_time: string;
+  end_time?: string;
+  input?: any;
+  output?: any;
+  metadata?: any;
+  tags?: string[];
+  error_info?: any;
+  trace_id?: string;
+  provider?: string;
+  model?: string;
+  usage?: any;
+}
+
 export interface OpikConfig {
   base_url: string;
   api_key?: string;
   project_name?: string;
   workspace?: string;
   is_local?: boolean;
+  provider?: string;
 }
 
 export interface SyncOptions {

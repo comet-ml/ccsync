@@ -10,26 +10,27 @@ interface OpikConfigFile {
   workspace?: string;
   project_name?: string;
   is_local?: boolean;
+  provider?: string;
 }
 
 function parseOpikConfigFile(content: string): OpikConfigFile {
   const config: OpikConfigFile = {};
   const lines = content.split('\n');
-  
+
   for (const line of lines) {
     const trimmed = line.trim();
-    
+
     // Skip empty lines and comments
     if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('[')) {
       continue;
     }
-    
+
     // Parse key = value pairs
     const match = trimmed.match(/^(\w+)\s*=\s*(.+)$/);
     if (match) {
       const [, key, value] = match;
       const cleanValue = value.trim();
-      
+
       switch (key) {
         case 'api_key':
           config.api_key = cleanValue;
@@ -46,22 +47,26 @@ function parseOpikConfigFile(content: string): OpikConfigFile {
         case 'is_local':
           config.is_local = cleanValue.toLowerCase() === 'true';
           break;
+        case 'provider':
+          config.provider = cleanValue;
+          break;
       }
     }
   }
-  
+
   return config;
 }
 
 export function getOpikConfig(): OpikConfig {
   const logger = createLogger({ verbose: false });
-  
+
   // Try environment variables first
   const apiKey = process.env.OPIK_API_KEY;
   const baseUrl = process.env.OPIK_BASE_URL || 'http://localhost:5173';
   const projectName = process.env.OPIK_PROJECT_NAME;
   const workspace = process.env.OPIK_WORKSPACE;
   const isLocal = process.env.OPIK_IS_LOCAL?.toLowerCase() === 'true';
+  const provider = process.env.OPIK_PROVIDER;
 
   if (apiKey || isLocal) {
     return {
@@ -69,7 +74,8 @@ export function getOpikConfig(): OpikConfig {
       base_url: baseUrl,
       project_name: projectName || 'Claude Code',
       workspace: workspace || 'default',
-      is_local: isLocal
+      is_local: isLocal,
+      provider,
     };
   }
 
@@ -80,7 +86,7 @@ export function getOpikConfig(): OpikConfig {
     const configFile = readFileSync(configPath, 'utf8');
     const config = parseOpikConfigFile(configFile);
     logger.debug(`Parsed config:`, config);
-    
+
     if (!config.api_key && !config.is_local) {
       throw new Error('No API key found in config file (required for cloud instance)');
     }
@@ -90,14 +96,15 @@ export function getOpikConfig(): OpikConfig {
       base_url: config.url_override || baseUrl,
       project_name: config.project_name || 'Claude Code',
       workspace: config.workspace || 'default',
-      is_local: config.is_local || false
+      is_local: config.is_local || false,
+      provider: config.provider,
     };
-    
-    logger.debug(`Using Opik config:`, { 
-      ...finalConfig, 
-      api_key: finalConfig.api_key ? '***configured***' : 'not set' 
+
+    logger.debug(`Using Opik config:`, {
+      ...finalConfig,
+      api_key: finalConfig.api_key ? '***configured***' : 'not set'
     });
-    
+
     return finalConfig;
   } catch (error) {
     logger.error(`Config error: ${error instanceof Error ? error.message : error}`);

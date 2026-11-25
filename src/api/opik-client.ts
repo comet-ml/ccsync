@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
-import { OpikConfig, OpikTrace } from '../types';
+import { OpikConfig, OpikSpan, OpikTrace } from '../types';
 import { createLogger } from '../utils/logger';
 
 export interface OpikCreateTracesRequest {
@@ -14,6 +14,17 @@ export interface OpikCreateTracesResponse {
   [key: string]: any; // Allow additional properties
 }
 
+export interface OpikCreateSpansRequest {
+  spans: OpikSpan[];
+}
+
+export interface OpikCreateSpansResponse {
+  spans?: Array<{
+    id: string;
+    project_id?: string;
+  }>;
+}
+
 export class OpikApiClient {
   private client: AxiosInstance;
   private config: OpikConfig;
@@ -22,7 +33,7 @@ export class OpikApiClient {
   constructor(config: OpikConfig) {
     this.config = config;
     this.logger = createLogger({ verbose: false });
-    
+
     // Normalize the base URL - remove trailing /api/ if present since we'll add the full path
     let baseURL = config.base_url;
     if (baseURL.endsWith('/api/')) {
@@ -30,7 +41,7 @@ export class OpikApiClient {
     } else if (baseURL.endsWith('/api')) {
       baseURL = baseURL.slice(0, -4); // Remove '/api'
     }
-    
+
     this.client = axios.create({
       baseURL: baseURL,
       headers: {
@@ -41,7 +52,7 @@ export class OpikApiClient {
       },
       timeout: 30000 // 30 second timeout
     });
-    
+
     this.logger.debug(`Opik API client configured with base URL: ${baseURL}`);
   }
 
@@ -50,12 +61,12 @@ export class OpikApiClient {
     if (traces.length === 0) {
       return { traces: [] };
     }
-    
+
     const request: OpikCreateTracesRequest = { traces };
-    
+
     try {
       this.logger.debug(`Sending ${traces.length} traces to Opik at ${this.config.base_url}`);
-      
+
       const response = await this.client.post<OpikCreateTracesResponse>(
         '/api/v1/private/traces/batch',
         request
@@ -68,12 +79,12 @@ export class OpikApiClient {
     } catch (error) {
       if (error instanceof AxiosError) {
         // If workspace doesn't exist, try with "default"
-        if (error.response?.status === 403 && 
-            error.response?.data?.message?.includes('Workspace') &&
-            this.config.workspace !== 'default') {
-          
+        if (error.response?.status === 403 &&
+          error.response?.data?.message?.includes('Workspace') &&
+          this.config.workspace !== 'default') {
+
           this.logger.warning(`Workspace '${this.config.workspace}' not found, trying 'default'`);
-          
+
           // Create a new client with default workspace
           const defaultClient = axios.create({
             ...this.client.defaults,
@@ -82,7 +93,7 @@ export class OpikApiClient {
               'Comet-Workspace': 'default'
             }
           });
-          
+
           try {
             const response = await defaultClient.post<OpikCreateTracesResponse>(
               '/api/v1/private/traces/batch',
@@ -96,14 +107,14 @@ export class OpikApiClient {
             this.logger.error(`Fallback to default workspace also failed`);
           }
         }
-        
+
         this.logger.debug(`Request details:`, {
           url: error.config?.url,
           method: error.config?.method,
           baseURL: error.config?.baseURL,
           headers: error.config?.headers
         });
-        
+
         const status = error.response?.status || 'no response';
         const statusText = error.response?.statusText || 'unknown error';
         const errorMsg = `Failed to create traces: ${status} ${statusText}`;
@@ -112,6 +123,85 @@ export class OpikApiClient {
       }
       throw new Error(`Unexpected error creating traces: ${error instanceof Error ? error.message : error}`);
     }
+  }
+
+  async createSpans(spans: OpikSpan[]): Promise<OpikCreateSpansResponse> {
+    // Don't call API if there are no spans to create
+    if (spans.length === 0) {
+      return { spans: [] };
+    }
+
+    const limit = 1000; // Opik API prohibits more than 1000 spans at a time
+    const chunks = [...Array(Math.ceil(spans.length / limit))].map(_ => spans.splice(0, limit));
+    const response: OpikCreateSpansResponse = { spans: [] };
+
+    for (const chunkSpans of chunks) {
+      const request: OpikCreateSpansRequest = { spans: chunkSpans };
+
+      try {
+        this.logger.debug(`Sending ${chunkSpans.length} spans to Opik at ${this.config.base_url}`);
+
+        const chunkResponse = await this.client.post<OpikCreateSpansResponse>(
+          '/api/v1/private/spans/batch',
+          request
+        );
+
+        this.logger.debug(`Status Code: ${chunkResponse.status}`);
+        this.logger.debug(`API Response:`, chunkResponse.data);
+        this.logger.debug(`Successfully created ${chunkResponse.data?.spans?.length || 'unknown number of'} spans`);
+
+        response.spans?.push(...(chunkResponse.data.spans ?? []));
+      } catch (error) {
+        if (error instanceof AxiosError) {
+          // If workspace doesn't exist, try with "default"
+          if (error.response?.status === 403 &&
+            error.response?.data?.message?.includes('Workspace') &&
+            this.config.workspace !== 'default') {
+
+            this.logger.warning(`Workspace '${this.config.workspace}' not found, trying 'default'`);
+
+            // Create a new client with default workspace
+            const defaultClient = axios.create({
+              ...this.client.defaults,
+              headers: {
+                ...this.client.defaults.headers,
+                'Comet-Workspace': 'default'
+              }
+            });
+
+            try {
+              const chunkResponse = await defaultClient.post<OpikCreateSpansResponse>(
+                '/api/v1/private/spans/batch',
+                request
+              );
+              this.logger.debug(`Fallback Status Code: ${chunkResponse.status}`);
+              this.logger.debug(`Fallback API Response:`, chunkResponse.data);
+              this.logger.debug(`Successfully created ${chunkResponse.data?.spans?.length || 'unknown number of'} spans in default workspace`);
+
+              response.spans?.push(...(chunkResponse.data.spans ?? []));
+            } catch (fallbackError) {
+              this.logger.error(`Fallback to default workspace also failed`);
+            }
+          }
+
+          this.logger.debug(`Request details:`, {
+            url: error.config?.url,
+            method: error.config?.method,
+            baseURL: error.config?.baseURL,
+            headers: error.config?.headers
+          });
+
+          const status = error.response?.status || 'no response';
+          const statusText = error.response?.statusText || 'unknown error';
+          const errorMsg = `Failed to create spans: ${status} ${statusText}`;
+          const errorDetails = error.response?.data ? JSON.stringify(error.response.data, null, 2) : error.message;
+          throw new Error(`${errorMsg}\nDetails: ${errorDetails}`);
+        }
+        throw new Error(`Unexpected error creating spans: ${error instanceof Error ? error.message : error}`);
+      }
+    }
+
+    return response;
   }
 
   async testConnection(): Promise<boolean> {
@@ -144,7 +234,7 @@ export class OpikApiClient {
   async updateTrace(traceId: string, trace: Partial<OpikTrace>): Promise<void> {
     try {
       this.logger.debug(`Updating trace ${traceId} in Opik`);
-      
+
       const response = await this.client.patch<void>(
         `/api/v1/private/traces/${traceId}`,
         trace
@@ -160,7 +250,7 @@ export class OpikApiClient {
           baseURL: error.config?.baseURL,
           headers: error.config?.headers
         });
-        
+
         const status = error.response?.status || 'no response';
         const statusText = error.response?.statusText || 'unknown error';
         const errorMsg = `Failed to update trace ${traceId}: ${status} ${statusText}`;
@@ -195,7 +285,7 @@ export class OpikApiClient {
       });
 
       const searchResponse = await this.client.get(`${searchEndpoint}?${searchParams}`);
-      
+
       if (!searchResponse.data?.content?.[0]?.thread_model_id) {
         throw new Error(`Thread ${threadId} not found or no thread_model_id available`);
       }
@@ -205,7 +295,7 @@ export class OpikApiClient {
       // Now update the thread tags using the thread_model_id
       const updateEndpoint = `/api/v1/private/traces/threads/${threadModelId}`;
       const payload = { tags };
-      
+
       await this.client.patch<void>(updateEndpoint, payload);
     } catch (error) {
       if (error instanceof AxiosError) {
@@ -216,7 +306,7 @@ export class OpikApiClient {
           headers: error.config?.headers,
           data: error.config?.data
         })}`);
-        
+
         const status = error.response?.status || 'no response';
         const statusText = error.response?.statusText || 'unknown error';
         const errorMsg = `Failed to update thread ${threadId} tags: ${status} ${statusText}`;
